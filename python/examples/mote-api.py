@@ -357,17 +357,17 @@ def rainbow_2_mote():
 def tiedye_2_mote():
     global colour
     for i in range (120):
-        h = time.time() * 75
+        h = time.time() * 150
 
-        for channel in range(3):
+        for channel in range(10):
 
             for pixel in range(16):
                 hue = (h + (channel * 64) + (pixel * 4)) % 360
                 r, g, b = [int(c * 255) for c in hsv_to_rgb(hue/360.0, hue/180, hue/90)]
                 mote.set_pixel(1, pixel, r, g, b)
                 mote.set_pixel(2, pixel, r, g, b)
-                mote.set_pixel(3, i, r, g, b)
-                mote.set_pixel(4, i, r, g, b)
+                mote.set_pixel(3, pixel, r, g, b)
+                mote.set_pixel(4, pixel, r, g, b)
 
         mote.show()
         time.sleep(random.uniform(0.01,0.12))
