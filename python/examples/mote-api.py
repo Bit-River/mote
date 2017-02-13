@@ -41,9 +41,6 @@ status = {'state': {1: 0, 2: 0, 3: 0, 4: 0},
          }
 
 
-## Define Default Time Pause for Animations - Typical value = 0.1
-pause_time_default = 0.123
-
 ## Converts a hex colour like FF0000 to an RGB colour like 255, 0, 0 (red)
 def hex_to_rgb(value):
     value = value.lstrip('#')
@@ -52,7 +49,7 @@ def hex_to_rgb(value):
 
 ## Turns Mote on, with the currently set colours and states for each channel
 def mote_on(status):
-    for chan in range(1,5,1):
+    for chan in range(4):
         r, g, b = status['colour'][chan + 1]
         for pixel in range(16):
             if not status['state'][chan + 1] == 0:
@@ -71,125 +68,48 @@ def mote_off(status):
     mote.show()
     return True
 
-
-## One Light, on One Mote Stick, Travelling at the set colour & channel from the USB port to the End
-def larson_usb_to_end(colour,channel):
+## Mote Effect - Larson Loop
+##
+## ch_selection - Mote Stick Channel Selection:
+## '1234' - All Four Channels Selected
+## '1204' - Channels 1, 2, and 4 Selected
+## '0230' - Channels 2 and 3 Selected
+##
+## direction - Light Effect Direction
+## 0 = Effect moves from End to USB port
+## 1 = Effect moves from USB port to End
+##
+## colour - Light Effect Colour in hex
+##
+## pause - Light Effect Pause in Seconds (typical value 0.1)
+##
+## stay - Light Change Persistence
+## 0 = Colour Change is Not Persistent, effect is a single led moving
+## 1 = Colour Change is Persistent, effect is a growing wash of colour
+##
+def larson(ch_selection,direction,colour,pause,stay):
     r, g, b = hex_to_rgb(colour)
-    for i in range(0,16,1):
-        mote.set_pixel(channel,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-        mote.clear()
+    start = 0
+    end = 16
 
-## One Light, on One Mote Stick, Travelling at the set colour & channel from the End to the USB port
-def larson_end_to_usb(colour,channel):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(15,-1,-1):
-        mote.set_pixel(channel,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-        mote.clear()
+    if direction == 0:
+        start = 15
+        end = -1
+        direction = -1
 
-## One Light, on Two Mote sticks at a time, Travelling at the set colour & channels from the USB port to the End
-def larson_double_usb_to_end(colour,ch1,ch2):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(0,16,1):
-        mote.set_pixel(ch1,i,r,g,b)
-        mote.set_pixel(ch2,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-        mote.clear()
+    for i in range(start,end,direction):
 
-## One Light, on Two Mote sticks at a time, Travelling at the set colour & channels from the End side to the USB port
-def larson_double_end_to_usb(colour,ch1,ch2):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(15,-1,-1):
-        mote.set_pixel(ch1,i,r,g,b)
-        mote.set_pixel(ch2,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-        mote.clear()
+        for c in range(4):
+            if ch_selection[c] not in "0":
+                mote.set_pixel(int(ch_selection[c]),i,r,g,b)
 
-## One Light, on Four Mote sticks at a time, Travelling at the set colour & channels from the USB port to the End
-def larson_quad_usb_to_end(colour):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(0,16,1):
-        mote.set_pixel(1,i,r,g,b)
-        mote.set_pixel(2,i,r,g,b)
-        mote.set_pixel(3,i,r,g,b)
-        mote.set_pixel(4,i,r,g,b)
         mote.show()
-        time.sleep(pause_time_default)
-        mote.clear()
+        time.sleep(pause)
+        if stay == 0:
+            mote.clear()
 
-## One Light, on Four Mote sticks at a time, Travelling at the set colour & channels from the End side to the USB port
-def larson_quad_end_to_usb(colour):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(15,-1,-1):
-        mote.set_pixel(1,i,r,g,b)
-        mote.set_pixel(2,i,r,g,b)
-        mote.set_pixel(3,i,r,g,b)
-        mote.set_pixel(4,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-        mote.clear()
-
-
-## One Light, remaining On, Travelling at the set colour & channel from the USB port to the End
-def colour_flow_usb_to_end(colour,channel):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(0,16,1):
-        mote.set_pixel(channel,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-
-## One Light, remaining On, Travelling at the set colour & channel from the End to the USB port
-def colour_flow_end_to_usb(colour,channel):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(15,-1,-1):
-        mote.set_pixel(channel,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-
-## One Light on Two Motes, remaining On, Travelling at the set colour & channel from the USB port to the End
-def colour_flow_double_usb_to_end(colour,ch1,ch2):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(0,16,1):
-        mote.set_pixel(ch1,i,r,g,b)
-        mote.set_pixel(ch2,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-
-## One Light on Two Motes, remaining On, Travelling at the set colour & channel from the End to the USB port
-def colour_flow_double_end_to_usb(colour,ch1,ch2):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(15,-1,-1):
-        mote.set_pixel(ch1,i,r,g,b)
-        mote.set_pixel(ch2,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-
-## One Light on Four Motes, remaining On, Travelling at the set colour & channel from the USB port to the End
-def colour_flow_quad_usb_to_end(colour):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(0,16,1):
-        mote.set_pixel(1,i,r,g,b)
-        mote.set_pixel(2,i,r,g,b)
-        mote.set_pixel(3,i,r,g,b)
-        mote.set_pixel(4,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
-
-## One Light on Four Motes, remaining On, Travelling at the set colour & channel from the End to the USB port
-def colour_flow_quad_end_to_usb(colour):
-    r, g, b = hex_to_rgb(colour)
-    for i in range(15,-1,-1):
-        mote.set_pixel(1,i,r,g,b)
-        mote.set_pixel(2,i,r,g,b)
-        mote.set_pixel(3,i,r,g,b)
-        mote.set_pixel(4,i,r,g,b)
-        mote.show()
-        time.sleep(pause_time_default)
+    get_state('all')
+    return jsonify(status)
 
 
 ## Returns, in JSON, the state of the given channel, or all channels
@@ -287,148 +207,45 @@ def set_colour(channel, c):
             mote_on(status)
     return jsonify(status)
 
-## 2-Mote - Clearing Back, then Filling
-@app.route(baseurl + version + '/on_animated_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def on_animated_2_mote(c,ch_a,ch_b):
-    global colour
-    larson_double_end_to_usb(c,ch_a,ch_b)
-    colour_flow_double_usb_to_end(c,ch_a,ch_b)
+
+## General Larson Loop Call, e.g. /larsonloop/1004/1/00ff00/0.1/0
+@app.route(baseurl + version + '/larsonloop/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:stay>', methods=['GET'])
+def larsonloop(ch_selection,direction,colour,pause,stay):
+    larson(ch_selection,direction,colour,pause,stay)
     get_state('all')
     return jsonify(status)
 
 
-## 4-Mote - Clearing Back, then Filling
-@app.route(baseurl + version + '/on_animated_4_mote/colour/<string:c>', methods=['GET'])
-def on_animated_4_mote(c):
-    global colour
-    larson_quad_end_to_usb(c)
-    colour_flow_quad_usb_to_end(c)
-    get_state('all')
-    return jsonify(status)
-
-
-## 2-Mote - Clearing Back, then All-Off
-@app.route(baseurl + version + '/off_animated_2_mote/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def off_animated_2_mote(ch_a,ch_b):
-    global colour
-    colour_flow_double_end_to_usb('000000',ch_a,ch_b)
-    mote_off(status)
-    get_state('all')
-    return jsonify(status)
-
-
-## 4-Mote - Clearing Over, then Gone
-@app.route(baseurl + version + '/off_animated_4_mote', methods=['GET'])
-def off_animated_4_mote():
-    global colour
-    colour_flow_quad_end_to_usb('000000')
-    mote_off(status)
-    get_state('all')
-    return jsonify(status)
-
-
-## 2-Mote - Filling Over - USB port to End
-@app.route(baseurl + version + '/swipe_over_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def swipe_over(c,ch_a,ch_b):
-    global colour
-    colour_flow_usb_to_end(c,ch_a)
-    colour_flow_end_to_usb(c,ch_b)
-    get_state('all')
-    return jsonify(status)
-
-## 2-Mote - Filling Back - End to USB port
-@app.route(baseurl + version + '/swipe_back_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def swipe_back(c,ch_a,ch_b):
-    global colour
-    colour_flow_usb_to_end(c,ch_b)
-    colour_flow_end_to_usb(c,ch_a)
-    get_state('all')
-    return jsonify(status)
-
-
-## 2-Mote - Swipe in
-@app.route(baseurl + version + '/swipe_in_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def swipe_in_2_mote(c,ch_a,ch_b):
-    global colour
-    r, g, b = hex_to_rgb(c)
-    colour_flow_double_usb_to_end(c,ch_a,ch_b)
-    get_state('all')
-    return jsonify(status)
-
-## 2-Mote - Swipe Out
-@app.route(baseurl + version + '/swipe_out_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def swipe_out_2_mote(c,ch_a,ch_b):
-    global colour
-    r, g, b = hex_to_rgb(c)
-    colour_flow_double_end_to_usb(c,ch_a,ch_b)
-    get_state('all')
-    return jsonify(status)
-
-## 4-Mote - Swipe in
-@app.route(baseurl + version + '/swipe_in_4_mote/colour/<string:c>', methods=['GET'])
-def swipe_in_4_mote(c):
-    global colour
-    r, g, b = hex_to_rgb(c)
-    colour_flow_quad_usb_to_end(c)
-    get_state('all')
-    return jsonify(status)
-
-## 4-Mote - Swipe Out
-@app.route(baseurl + version + '/swipe_out_4_mote/colour/<string:c>', methods=['GET'])
-def swipe_out_4_mote(c):
-    global colour
-    r, g, b = hex_to_rgb(c)
-    colour_flow_quad_end_to_usb(c)
-    get_state('all')
-    return jsonify(status)
-
-
-## 2-Mote - Single Light Travelling Over, and Back
-@app.route(baseurl + version + '/cylon_uno_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def cylon_uno_2_mote(c,ch_a,ch_b):
-    global colour
-    larson_usb_to_end(c,ch_b)
-    larson_end_to_usb(c,ch_a)
-    larson_usb_to_end(c,ch_a)
-    larson_end_to_usb(c,ch_b)
-    get_state('all')
-    return jsonify(status)
-
-
-## 4-Mote - Single Light Travelling Across
-@app.route(baseurl + version + '/cylon_uno_4_mote/colour/<string:c>', methods=['GET'])
-def cylon_uno_4_mote(c):
-    global colour
-    larson_double_usb_to_end(c,1,4)
-    larson_double_end_to_usb(c,1,4)
-    larson_double_usb_to_end(c,2,4)
-    larson_double_end_to_usb(c,2,4)
-    get_state('all')
-    return jsonify(status)
-
-
-## 2-Mote - Double Light Traveliing Towards then Away - x 2
-@app.route(baseurl + version + '/cylon_duo_2_mote/colour/<string:c>/<int:ch_a>/<int:ch_b>', methods=['GET'])
-def cylon_duo_2_mote(c,ch_a,ch_b):
-    global colour
-    for cylon_double in range (2):
-        larson_double_usb_to_end(c,ch_a,ch_b)
-        larson_double_end_to_usb(c,ch_a,ch_b)
+## Cylon (aka Larson Scanner), e.g. /cylon/0230/1/f0ff00/0.1/3
+@app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:loop>', methods=['GET'])
+def cylon(ch_selection,direction,colour,pause,loop):
+    reverse_direction = 1 - direction
+    for i in range(loop):
+        larson(ch_selection,direction,colour,pause,0)
+        larson(ch_selection,reverse_direction,colour,pause,0)
 
     get_state('all')
     return jsonify(status)
 
-
-## 4-Mote - Double Light Traveliing Across
-@app.route(baseurl + version + '/cylon_duo_4_mote/colour/<string:c>', methods=['GET'])
-def cylon_duo_4_mote(c):
-    global colour
-    for cylon_double in range (2):
-        larson_quad_usb_to_end(c)
-        larson_quad_end_to_usb(c)
-
+## Bounce Colour Wash, e.g. /bouncewash/1234/1/f0ffff/0.1/4
+@app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:loop>', methods=['GET'])
+def bouncewash(ch_selection,direction,colour,pause,loop):
+    reverse_direction = 1 - direction
+    for i in range(loop):
+        larson(ch_selection,reverse_direction,colour,pause,0)
+        larson(ch_selection,direction,colour,pause,1)
     get_state('all')
     return jsonify(status)
+
+## Colour Wash Animated, e.g. /colourwash/0034/0/ff0000/0.1
+@app.route(baseurl + version + '/colourwash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>', methods=['GET'])
+def colourwash(ch_selection,direction,colour,pause):
+    reverse_direction = 1 - direction
+    larson(ch_selection,direction,colour,pause,1)
+    larson(ch_selection,reverse_direction,colour,pause,1)
+    get_state('all')
+    return jsonify(status)
+
 
 ## Rainbow / Spectrum
 @app.route(baseurl + version + '/rainbow', methods=['GET'])
