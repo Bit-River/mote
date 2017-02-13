@@ -219,10 +219,9 @@ def larsonloop(ch_selection,direction,colour,pause,stay):
 ## Cylon (aka Larson Scanner), e.g. /cylon/0230/1/f0ff00/0.1/3
 @app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:loop>', methods=['GET'])
 def cylon(ch_selection,direction,colour,pause,loop):
-    reverse_direction = 1 - direction
     for i in range(loop):
         larson(ch_selection,direction,colour,pause,0)
-        larson(ch_selection,reverse_direction,colour,pause,0)
+        larson(ch_selection,1 - direction,colour,pause,0)
 
     get_state('all')
     return jsonify(status)
@@ -230,9 +229,8 @@ def cylon(ch_selection,direction,colour,pause,loop):
 ## Bounce Colour Wash, e.g. /bouncewash/1234/1/f0ffff/0.1/4
 @app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:loop>', methods=['GET'])
 def bouncewash(ch_selection,direction,colour,pause,loop):
-    reverse_direction = 1 - direction
     for i in range(loop):
-        larson(ch_selection,reverse_direction,colour,pause,0)
+        larson(ch_selection,1 - direction,colour,pause,0)
         larson(ch_selection,direction,colour,pause,1)
     get_state('all')
     return jsonify(status)
@@ -240,9 +238,8 @@ def bouncewash(ch_selection,direction,colour,pause,loop):
 ## Colour Wash Animated, e.g. /colourwash/0034/0/ff0000/0.1
 @app.route(baseurl + version + '/colourwash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>', methods=['GET'])
 def colourwash(ch_selection,direction,colour,pause):
-    reverse_direction = 1 - direction
     larson(ch_selection,direction,colour,pause,1)
-    larson(ch_selection,reverse_direction,colour,pause,1)
+    larson(ch_selection,1 - reverse_direction,colour,pause,1)
     get_state('all')
     return jsonify(status)
 
