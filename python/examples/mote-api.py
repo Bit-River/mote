@@ -84,7 +84,7 @@ def mote_off(status):
 ## pause - Light Effect Pause in Seconds (typical value 0.1)
 ##
 ## stay - Light Change Persistence
-## 0 = Colour Change is Not Persistent, effect is a single led moving
+## 0 = Colour Change is Not Persistent, effect is a moving led light
 ## 1 = Colour Change is Persistent, effect is a growing wash of colour
 ##
 def larson(ch_selection,direction,colour,pause,stay):
@@ -110,7 +110,6 @@ def larson(ch_selection,direction,colour,pause,stay):
 
     get_state('all')
     return jsonify(status)
-
 
 ## Returns, in JSON, the state of the given channel, or all channels
 @app.route(baseurl + version + '/channel/<string:channel>/state', methods=['GET'])
@@ -208,10 +207,36 @@ def set_colour(channel, c):
     return jsonify(status)
 
 
-## General Larson Loop Call, e.g. /larsonloop/1004/1/00ff00/0.1/0
+## General Larson Loop Call, All Motes Sticks Changed at the Same time
+## e.g. /larsonloop/1004/1/00ff00/0.1/0
 @app.route(baseurl + version + '/larsonloop/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:stay>', methods=['GET'])
 def larsonloop(ch_selection,direction,colour,pause,stay):
     larson(ch_selection,direction,colour,pause,stay)
+    get_state('all')
+    return jsonify(status)
+
+## Larson Swipe Call, Mote Sticks Changed Sequentially
+## ! Altered Meaning to ch_selection, Stick Order is used
+## '4300' - The 4th Stick, and then the 3rd
+## '1342' - 4th, 3rd, 4th, 2nd
+## e.g. /larsonswipe/1300/1/00ff00/0.1/0
+@app.route(baseurl + version + '/larsonswipe/<string:ch_sequence>/<int:direction>/<string:colour>/<float:pause>/<int:stay>', methods=['GET'])
+def larsonswipe(ch_sequence,direction,colour,pause,stay):
+    ch_selection = "0000"
+    for c in range(4):
+        if int(ch_sequence[c]) == 1:
+            ch_selection = "1000"
+        elif int(ch_sequence[c]) == 2:
+            ch_selection = "0200"
+        elif int(ch_sequence[c]) == 3:
+            ch_selection = "0030"
+        elif int(ch_sequence[c]) == 4:
+            ch_selection = "0004"
+        elif int(ch_sequence[c]) == 0:
+            ch_selection = "0000"
+
+        larson(ch_selection,direction,colour,pause,stay)
+
     get_state('all')
     return jsonify(status)
 
@@ -232,14 +257,6 @@ def bouncewash(ch_selection,direction,colour,pause,loop):
     for i in range(loop):
         larson(ch_selection,1 - direction,colour,pause,0)
         larson(ch_selection,direction,colour,pause,1)
-    get_state('all')
-    return jsonify(status)
-
-## Colour Wash Animated, e.g. /colourwash/0034/0/ff0000/0.1
-@app.route(baseurl + version + '/colourwash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>', methods=['GET'])
-def colourwash(ch_selection,direction,colour,pause):
-    larson(ch_selection,direction,colour,pause,1)
-    larson(ch_selection,1 - reverse_direction,colour,pause,1)
     get_state('all')
     return jsonify(status)
 
