@@ -68,6 +68,7 @@ def mote_off(status):
     mote.show()
     return True
 
+
 ## Mote Effect - Larson Loop
 ##
 ## ch_selection - Mote Stick Channel Selection:
@@ -81,13 +82,17 @@ def mote_off(status):
 ##
 ## colour - Light Effect Colour in hex
 ##
-## pause - Light Effect Pause in Seconds (typical value 0.1)
+## pause_time - Light Effect Pause in Seconds (typical value 0.1)
 ##
-## stay - Light Change Persistence
+## persist - Light Change Persistence
 ## 0 = Colour Change is Not Persistent, effect is a moving led light
 ## 1 = Colour Change is Persistent, effect is a growing wash of colour
 ##
-def larson(ch_selection,direction,colour,pause,stay):
+## loop - Number of Loops
+## 1 = Run Once
+## 2 = Run Twice
+##
+def larson(ch_selection,direction,colour,pause_time,persist,loop):
     r, g, b = hex_to_rgb(colour)
     start = 0
     end = 16
@@ -97,19 +102,41 @@ def larson(ch_selection,direction,colour,pause,stay):
         end = -1
         direction = -1
 
-    for i in range(start,end,direction):
+    for i in range(loop):
+
+        for i in range(start,end,direction):
+
+            for c in range(4):
+                if ch_selection[c] not in "0":
+                    mote.set_pixel(int(ch_selection[c]),i,r,g,b)
+
+            mote.show()
+            time.sleep(pause_time)
+            if persist == 0:
+                mote.clear()
+
+## Larson Swipe Call, Mote Sticks Changed Sequentially
+## Altered Meaning to ch_selection, Stick Order is used
+## '4300' - The 4th Stick, and then the 3rd
+##
+def larson_sequence(ch_sequence,direction,colour,pause_time,persist,loop):
+    ch_selection = "0000"
+    for i in range(loop):
 
         for c in range(4):
-            if ch_selection[c] not in "0":
-                mote.set_pixel(int(ch_selection[c]),i,r,g,b)
+            if int(ch_sequence[c]) == 1:
+                ch_selection = "1000"
+            elif int(ch_sequence[c]) == 2:
+                ch_selection = "0200"
+            elif int(ch_sequence[c]) == 3:
+                ch_selection = "0030"
+            elif int(ch_sequence[c]) == 4:
+                ch_selection = "0004"
+            elif int(ch_sequence[c]) == 0:
+                ch_selection = "0000"
+            larson(ch_selection,direction,colour,pause_time,persist,1)
 
-        mote.show()
-        time.sleep(pause)
-        if stay == 0:
-            mote.clear()
 
-    get_state('all')
-    return jsonify(status)
 
 ## Returns, in JSON, the state of the given channel, or all channels
 @app.route(baseurl + version + '/channel/<string:channel>/state', methods=['GET'])
@@ -208,57 +235,41 @@ def set_colour(channel, c):
 
 
 ## General Larson Loop Call, All Motes Sticks Changed at the Same time
-## e.g. /larsonloop/1004/1/00ff00/0.1/0
-@app.route(baseurl + version + '/larsonloop/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:stay>', methods=['GET'])
-def larsonloop(ch_selection,direction,colour,pause,stay):
-    larson(ch_selection,direction,colour,pause,stay)
+## e.g. /larsonloop/1004/1/00ff00/0.1/0/7
+@app.route(baseurl + version + '/larsonloop/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def larsonloop(ch_selection,direction,colour,pause_time,persist,repeat):
+    larson(ch_selection,direction,colour,pause_time,persist,repeat)
     get_state('all')
     return jsonify(status)
 
 ## Larson Swipe Call, Mote Sticks Changed Sequentially
-## ! Altered Meaning to ch_selection, Stick Order is used
+## Altered Meaning to ch_selection, Stick Order is used
 ## '4300' - The 4th Stick, and then the 3rd
-## '1342' - 4th, 3rd, 4th, 2nd
-## e.g. /larsonswipe/1300/1/00ff00/0.1/0
-@app.route(baseurl + version + '/larsonswipe/<string:ch_sequence>/<int:direction>/<string:colour>/<float:pause>/<int:stay>', methods=['GET'])
-def larsonswipe(ch_sequence,direction,colour,pause,stay):
-    ch_selection = "0000"
-    for c in range(4):
-        if int(ch_sequence[c]) == 1:
-            ch_selection = "1000"
-        elif int(ch_sequence[c]) == 2:
-            ch_selection = "0200"
-        elif int(ch_sequence[c]) == 3:
-            ch_selection = "0030"
-        elif int(ch_sequence[c]) == 4:
-            ch_selection = "0004"
-        elif int(ch_sequence[c]) == 0:
-            ch_selection = "0000"
-
-        larson(ch_selection,direction,colour,pause,stay)
-
+## e.g. /larsonloop/1300/1/00ff00/0.1/0/2
+@app.route(baseurl + version + '/larsonswipe/<string:ch_sequence>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def larsonswipe(ch_sequence,direction,colour,pause_time,persist,repeat):
+    larson_sequence(ch_sequence,direction,colour,pause_time,persist,repeat)
     get_state('all')
     return jsonify(status)
 
-
 ## Cylon (aka Larson Scanner), e.g. /cylon/0230/1/f0ff00/0.1/3
-@app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:loop>', methods=['GET'])
-def cylon(ch_selection,direction,colour,pause,loop):
-    for i in range(loop):
-        larson(ch_selection,direction,colour,pause,0)
-        larson(ch_selection,1 - direction,colour,pause,0)
-
+@app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:persist>/<int:repeat>', methods=['GET'])
+def cylon(ch_selection,direction,colour,pause,persist,repeat):
+    for i in range(repeat):
+        larson(ch_selection,direction,colour,pause,0,1)
+        larson(ch_selection,1 - direction,colour,pause,0,1)
     get_state('all')
     return jsonify(status)
 
 ## Bounce Colour Wash, e.g. /bouncewash/1234/1/f0ffff/0.1/4
-@app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:loop>', methods=['GET'])
-def bouncewash(ch_selection,direction,colour,pause,loop):
-    for i in range(loop):
-        larson(ch_selection,1 - direction,colour,pause,0)
-        larson(ch_selection,direction,colour,pause,1)
+@app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:persist>/<int:repeat>', methods=['GET'])
+def bouncewash(ch_selection,direction,colour,pause,persist,repeat):
+    for i in range(repeat):
+        larson(ch_selection,1 - direction,colour,pause,0,1)
+        larson(ch_selection,direction,colour,pause,1,1)
     get_state('all')
     return jsonify(status)
+
 
 
 ## Rainbow / Spectrum
