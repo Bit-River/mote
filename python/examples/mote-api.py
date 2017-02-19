@@ -4,6 +4,7 @@ from colorsys import hsv_to_rgb, rgb_to_hsv
 from sys import exit
 import time
 import random
+#import MoteEffects
 
 try:
     from flask import Flask, jsonify, make_response, abort, request
@@ -20,7 +21,7 @@ mote = Mote()
 ## Optional Security Measure to Restrict IP access
 # @app.before_request
 # def limit_remote_addr():
-#     if request.remote_addr != '[Allowed IP]':
+#     if request.remote_addr != 'Allowed IP':
 #         abort(403)  # Forbidden
 
 
@@ -89,8 +90,9 @@ def mote_off(status):
 ## 1 = Colour Change is Persistent, effect is a growing wash of colour
 ##
 ## loop - Number of Loops
-## 1 = Run Once
+## 1 = Run Once (no repeat)
 ## 2 = Run Twice
+## and so on ...
 ##
 def larson(ch_selection,direction,colour,pause_time,persist,loop):
     r, g, b = hex_to_rgb(colour)
@@ -115,6 +117,29 @@ def larson(ch_selection,direction,colour,pause_time,persist,loop):
             if persist == 0:
                 mote.clear()
 
+def larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,loop):
+    start = 0
+    end = 16
+
+    if direction == 0:
+        start = 15
+        end = -1
+        direction = -1
+
+    for i in range(loop):
+
+        for i in range(start,end,direction):
+
+            for c in range(4):
+                if ch_selection[c] not in "0":
+                    mote.set_pixel(int(ch_selection[c]),i,r,g,b)
+
+            mote.show()
+            time.sleep(pause_time)
+            if persist == 0:
+                mote.clear()
+
+
 ## Larson Swipe Call, Mote Sticks Changed Sequentially
 ## Altered Meaning to ch_selection, Stick Order is used
 ## '4300' - The 4th Stick, and then the 3rd
@@ -136,6 +161,23 @@ def larson_sequence(ch_sequence,direction,colour,pause_time,persist,loop):
                 ch_selection = "0000"
             larson(ch_selection,direction,colour,pause_time,persist,1)
 
+
+def larson_sequence_rgb(ch_sequence,direction,r,g,b,pause_time,persist,loop):
+    ch_selection = "0000"
+    for i in range(loop):
+
+        for c in range(4):
+            if int(ch_sequence[c]) == 1:
+                ch_selection = "1000"
+            elif int(ch_sequence[c]) == 2:
+                ch_selection = "0200"
+            elif int(ch_sequence[c]) == 3:
+                ch_selection = "0030"
+            elif int(ch_sequence[c]) == 4:
+                ch_selection = "0004"
+            elif int(ch_sequence[c]) == 0:
+                ch_selection = "0000"
+            larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,1)
 
 
 ## Returns, in JSON, the state of the given channel, or all channels
@@ -242,6 +284,13 @@ def larsonloop(ch_selection,direction,colour,pause_time,persist,repeat):
     get_state('all')
     return jsonify(status)
 
+
+@app.route(baseurl + version + '/larsonloop_rgb/<string:ch_selection>/<int:direction>/<int:r>/<int:g>/<int:b>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def larsonloop_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat):
+    larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat)
+    get_state('all')
+    return jsonify(status)
+
 ## Larson Swipe Call, Mote Sticks Changed Sequentially
 ## Altered Meaning to ch_selection, Stick Order is used
 ## '4300' - The 4th Stick, and then the 3rd
@@ -252,24 +301,45 @@ def larsonswipe(ch_sequence,direction,colour,pause_time,persist,repeat):
     get_state('all')
     return jsonify(status)
 
-## Cylon (aka Larson Scanner), e.g. /cylon/0230/1/f0ff00/0.1/3
-@app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:persist>/<int:repeat>', methods=['GET'])
-def cylon(ch_selection,direction,colour,pause,persist,repeat):
-    for i in range(repeat):
-        larson(ch_selection,direction,colour,pause,0,1)
-        larson(ch_selection,1 - direction,colour,pause,0,1)
+@app.route(baseurl + version + '/larsonswipe_rgb/<string:ch_sequence>/<int:direction>/<int:r>/<int:g>/<int:b>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def larsonswipe_rgb(ch_sequence,direction,r,g,b,pause_time,persist,repeat):
+    larson_sequence_rgb(ch_sequence,direction,r,g,b,pause_time,persist,repeat)
     get_state('all')
     return jsonify(status)
 
-## Bounce Colour Wash, e.g. /bouncewash/1234/1/f0ffff/0.1/4
-@app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause>/<int:persist>/<int:repeat>', methods=['GET'])
-def bouncewash(ch_selection,direction,colour,pause,persist,repeat):
+## Cylon (aka Larson Scanner), e.g. /cylon/0230/1/f0ff00/0.1/1/3
+@app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def cylon(ch_selection,direction,colour,pause_time,persist,repeat):
     for i in range(repeat):
-        larson(ch_selection,1 - direction,colour,pause,0,1)
-        larson(ch_selection,direction,colour,pause,1,1)
+        larson(ch_selection,direction,colour,pause_time,0,1)
+        larson(ch_selection,1 - direction,colour,pause_time,0,1)
     get_state('all')
     return jsonify(status)
 
+@app.route(baseurl + version + '/cylon_rgb/<string:ch_selection>/<int:direction>/<int:r>/<int:g>/<int:b>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def cylon_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat):
+    for i in range(repeat):
+        larson_rgb(ch_selection,direction,r,g,b,pause_time,0,1)
+        larson_rgb(ch_selection,1 - direction,r,g,b,pause_time,0,1)
+    get_state('all')
+    return jsonify(status)
+
+## Bounce Colour Wash, e.g. /bouncewash/1234/1/f0ffff/0.1/1/4
+@app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def bouncewash(ch_selection,direction,colour,pause_time,persist,repeat):
+    for i in range(repeat):
+        larson(ch_selection,1 - direction,colour,pause_time,0,1)
+        larson(ch_selection,direction,colour,pause_time,1,1)
+    get_state('all')
+    return jsonify(status)
+
+@app.route(baseurl + version + '/bouncewash_rgb/<string:ch_selection>/<int:direction>/<int:r>/<int:g>/<int:b>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
+def bouncewash_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat):
+    for i in range(repeat):
+        larson_rgb(ch_selection,1 - direction,r,g,b,pause_time,0,1)
+        larson_rgb(ch_selection,direction,r,g,b,pause_time,1,1)
+    get_state('all')
+    return jsonify(status)
 
 
 ## Rainbow / Spectrum
