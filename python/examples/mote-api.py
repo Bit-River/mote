@@ -18,11 +18,11 @@ from mote import Mote
 app = Flask(__name__)
 mote = Mote()
 
-## Optional Security Measure to Restrict IP access
-# @app.before_request
-# def limit_remote_addr():
-#     if request.remote_addr != 'Allowed IP':
-#         abort(403)  # Forbidden
+# Optional Security Measure to Restrict IP access
+@app.before_request
+def limit_remote_addr():
+    if request.remote_addr != '192.168.178.40':
+        abort(403)  # Forbidden
 
 
 ## Configure Mote channels for 4x 16 pixel strips
@@ -81,7 +81,7 @@ def mote_off(status):
 ## 0 = Effect moves from End to USB port
 ## 1 = Effect moves from USB port to End
 ##
-## colour - Light Effect Colour in hex
+## Light Effect Colour in r,g,b, there are api calls for Hex
 ##
 ## pause_time - Light Effect Pause in Seconds (typical value 0.1)
 ##
@@ -94,28 +94,6 @@ def mote_off(status):
 ## 2 = Run Twice
 ## and so on ...
 ##
-def larson(ch_selection,direction,colour,pause_time,persist,loop):
-    r, g, b = hex_to_rgb(colour)
-    start = 0
-    end = 16
-
-    if direction == 0:
-        start = 15
-        end = -1
-        direction = -1
-
-    for i in range(loop):
-
-        for i in range(start,end,direction):
-
-            for c in range(4):
-                if ch_selection[c] not in "0":
-                    mote.set_pixel(int(ch_selection[c]),i,r,g,b)
-
-            mote.show()
-            time.sleep(pause_time)
-            if persist == 0:
-                mote.clear()
 
 def larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,loop):
     start = 0
@@ -136,30 +114,10 @@ def larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,loop):
 
             mote.show()
             time.sleep(pause_time)
-            if persist == 0:
-                mote.clear()
 
-
-## Larson Swipe Call, Mote Sticks Changed Sequentially
-## Altered Meaning to ch_selection, Stick Order is used
-## '4300' - The 4th Stick, and then the 3rd
-##
-def larson_sequence(ch_sequence,direction,colour,pause_time,persist,loop):
-    ch_selection = "0000"
-    for i in range(loop):
-
-        for c in range(4):
-            if int(ch_sequence[c]) == 1:
-                ch_selection = "1000"
-            elif int(ch_sequence[c]) == 2:
-                ch_selection = "0200"
-            elif int(ch_sequence[c]) == 3:
-                ch_selection = "0030"
-            elif int(ch_sequence[c]) == 4:
-                ch_selection = "0004"
-            elif int(ch_sequence[c]) == 0:
-                ch_selection = "0000"
-            larson(ch_selection,direction,colour,pause_time,persist,1)
+            for c in range(4):
+                if ch_selection[c] not in "0" and persist == 0:
+                    mote.clear(int(c+1))
 
 
 def larson_sequence_rgb(ch_sequence,direction,r,g,b,pause_time,persist,loop):
@@ -178,6 +136,48 @@ def larson_sequence_rgb(ch_sequence,direction,r,g,b,pause_time,persist,loop):
             elif int(ch_sequence[c]) == 0:
                 ch_selection = "0000"
             larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,1)
+
+
+def mote_single_led_rgb(ch_selection,led_number,r,g,b):
+    for c in range(4):
+        if int(ch_selection[c]) != 0:
+            mote.set_pixel(int(ch_selection[c]),led_number,r,g,b)
+            mote.show()
+
+def rainbow(ch_selection):
+    h = time.time() * 50
+    for channel in range(0,16,1):
+
+        for i in range(15,-1,-1):
+            hue = (h + (channel * 64) + (i * 2)) % 360
+            r, g, b = [int(c * 255) for c in hsv_to_rgb(hue/360.0, 1.0, 1.0)]
+
+            for c in range(4):
+                if ch_selection[c] not in "0":
+                    mote.set_pixel(int(ch_selection[c]),i,r,g,b)
+
+            mote.show()
+            time.sleep(0.07)
+
+
+def tiedye(ch_selection):
+    for dye in range(8):
+
+        for i in range (16):
+            h = time.time() * 50
+
+            for channel in range(30):
+
+                for pixel in range(16):
+                    hue = (h + (channel * 64) + (pixel * 4)) % 360
+                    r, g, b = [int(c * 255) for c in hsv_to_rgb(hue/360.0, hue/180, hue/90)]
+
+                    for c in range(4):
+                        if ch_selection[c] not in "0":
+                            mote.set_pixel(int(ch_selection[c]),i,r,g,b)
+
+            mote.show()
+            time.sleep(random.uniform(0.01,0.12))
 
 
 ## Returns, in JSON, the state of the given channel, or all channels
@@ -203,6 +203,22 @@ def get_state(channel):
         return jsonify(channel_status)
 
 
+## Returns Simple 'On' or 'Off' if Lamp is Lit
+@app.route(baseurl + version + '/lamp_lit', methods=['GET'])
+def lamp_lit():
+    global status
+    lamp_lit = "unknown"
+    for chan in range(1, 5):
+        for pixel in range(16):
+            if mote.get_pixel(chan, pixel) != (0, 0, 0):
+                status['state'][chan] = 1
+                lamp_lit = "on"
+            else:
+                status['state'][chan] = 0
+                lamp_lit = "off"
+
+        return lamp_lit
+
 ## Sets all channels, or a given channel, "on" or "off"
 @app.route(baseurl + version + '/channel/<string:channel>/state/<string:st>', methods=['GET'])
 def set_state(channel, st):
@@ -222,6 +238,7 @@ def set_state(channel, st):
             status['state'][int(channel)] = 0
         mote_off(status)
     return jsonify(status)
+
 
 
 ## Sets the brightness for a channel or all channels, by converting to HSV,
@@ -279,8 +296,9 @@ def set_colour(channel, c):
 ## General Larson Loop Call, All Motes Sticks Changed at the Same time
 ## e.g. /larsonloop/1004/1/00ff00/0.1/0/7
 @app.route(baseurl + version + '/larsonloop/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
-def larsonloop(ch_selection,direction,colour,pause_time,persist,repeat):
-    larson(ch_selection,direction,colour,pause_time,persist,repeat)
+def larsonl(ch_selection,direction,colour,pause_time,persist,repeat):
+    r, g, b = hex_to_rgb(colour)
+    larson_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat)
     get_state('all')
     return jsonify(status)
 
@@ -297,7 +315,8 @@ def larsonloop_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat):
 ## e.g. /larsonloop/1300/1/00ff00/0.1/0/2
 @app.route(baseurl + version + '/larsonswipe/<string:ch_sequence>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
 def larsonswipe(ch_sequence,direction,colour,pause_time,persist,repeat):
-    larson_sequence(ch_sequence,direction,colour,pause_time,persist,repeat)
+    r, g, b = hex_to_rgb(colour)
+    larson_sequence_rgb(ch_sequence,direction,r,g,b,pause_time,persist,repeat)
     get_state('all')
     return jsonify(status)
 
@@ -310,9 +329,10 @@ def larsonswipe_rgb(ch_sequence,direction,r,g,b,pause_time,persist,repeat):
 ## Cylon (aka Larson Scanner), e.g. /cylon/0230/1/f0ff00/0.1/1/3
 @app.route(baseurl + version + '/cylon/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
 def cylon(ch_selection,direction,colour,pause_time,persist,repeat):
+    r, g, b = hex_to_rgb(colour)
     for i in range(repeat):
-        larson(ch_selection,direction,colour,pause_time,0,1)
-        larson(ch_selection,1 - direction,colour,pause_time,0,1)
+        larson_rgb(ch_selection,direction,r,g,b,pause_time,0,1)
+        larson_rgb(ch_selection,1 - direction,r,g,b,pause_time,0,1)
     get_state('all')
     return jsonify(status)
 
@@ -327,9 +347,10 @@ def cylon_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat):
 ## Bounce Colour Wash, e.g. /bouncewash/1234/1/f0ffff/0.1/1/4
 @app.route(baseurl + version + '/bouncewash/<string:ch_selection>/<int:direction>/<string:colour>/<float:pause_time>/<int:persist>/<int:repeat>', methods=['GET'])
 def bouncewash(ch_selection,direction,colour,pause_time,persist,repeat):
+    r, g, b = hex_to_rgb(colour)
     for i in range(repeat):
-        larson(ch_selection,1 - direction,colour,pause_time,0,1)
-        larson(ch_selection,direction,colour,pause_time,1,1)
+        larson_rgb(ch_selection,1 - direction,r,g,b,pause_time,0,1)
+        larson_rgb(ch_selection,direction,r,g,b,pause_time,1,1)
     get_state('all')
     return jsonify(status)
 
@@ -341,48 +362,32 @@ def bouncewash_rgb(ch_selection,direction,r,g,b,pause_time,persist,repeat):
     get_state('all')
     return jsonify(status)
 
+@app.route(baseurl + version + '/mote_single_led/<string:ch_selection>/<int:led_number>/<string:colour>', methods=['GET'])
+def mote_single_led_spot(ch_selection,led_number,colour):
+    r, g, b = hex_to_rgb(colour)
+    mote_single_led_rgb(ch_selection,led_number,r,g,b)
+    get_state('all')
+    return jsonify(status)
+
+
+@app.route(baseurl + version + '/mote_single_led_rgb/<string:ch_selection>/<int:led_number>/<int:r>/<int:g>/<int:b>', methods=['GET'])
+def mote_single_led_spot_rgb(ch_selection,led_number,r,g,b):
+    mote_single_led_rgb(ch_selection,led_number,r,g,b)
+    get_state('all')
+    return jsonify(status)
+
 
 ## Rainbow / Spectrum
-@app.route(baseurl + version + '/rainbow', methods=['GET'])
-def rainbow():
-    global colour
-    h = time.time() * 50
-    for channel in range(0,16,1):
-
-        for i in range(15,-1,-1):
-            hue = (h + (channel * 64) + (i * 2)) % 360
-            r, g, b = [int(c * 255) for c in hsv_to_rgb(hue/360.0, 1.0, 1.0)]
-            mote.set_pixel(1, i, r, g, b)
-            mote.set_pixel(2, i, r, g, b)
-            mote.set_pixel(3, i, r, g, b)
-            mote.set_pixel(4, i, r, g, b)
-
-            mote.show()
-            time.sleep(0.07)
-
+@app.route(baseurl + version + '/rainbow/<string:ch_selection>', methods=['GET'])
+def rainb(ch_selection):
+    rainbow(ch_selection)
     get_state('all')
     return jsonify(status)
 
 ## Tiedye Effect (needs work, too much purple & white)
-@app.route(baseurl + version + '/tiedye', methods=['GET'])
-def tiedye():
-    global colour
-    for i in range (120):
-        h = time.time() * 150
-
-        for channel in range(10):
-
-            for pixel in range(16):
-                hue = (h + (channel * 64) + (pixel * 4)) % 360
-                r, g, b = [int(c * 255) for c in hsv_to_rgb(hue/360.0, hue/180, hue/90)]
-                mote.set_pixel(1, pixel, r, g, b)
-                mote.set_pixel(2, pixel, r, g, b)
-                mote.set_pixel(3, pixel, r, g, b)
-                mote.set_pixel(4, pixel, r, g, b)
-
-        mote.show()
-        time.sleep(random.uniform(0.01,0.12))
-
+@app.route(baseurl + version + '/tiedye/<string:ch_selection>', methods=['GET'])
+def t_dye(ch_selection):
+    tiedye(ch_selection)
     get_state('all')
     return jsonify(status)
 
