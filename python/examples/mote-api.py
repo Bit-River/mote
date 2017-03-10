@@ -11,6 +11,7 @@ except ImportError:
     exit("This script requires the flask module\nInstall with: sudo pip install flask")
 
 from mote import Mote
+
 import MoteEffects as moeff
 
 ## Create app, Mote instance
@@ -114,19 +115,10 @@ def set_state(channel, st):
 
 ## Returns Simple 'On' or 'Off' if any LED is Lit
 @app.route(baseurl + version + '/led_lit', methods=['GET'])
-def led_lit():
+def led_lit_status():
     global status
-    led_lit = "unknown"
-    for chan in range(1, 5):
-        for pixel in range(16):
-            if mote.get_pixel(chan, pixel) != (0, 0, 0):
-                status['state'][chan] = 1
-                led_lit = "on"
-            else:
-                status['state'][chan] = 0
-                led_lit = "off"
-
-        return led_lit
+    led_lit = moeff.led_lit()
+    return led_lit
 
 
 ## Sets the brightness for a channel or all channels, by converting to HSV,
@@ -273,7 +265,6 @@ def mote_single_led_spot_rgb(ch_selection,led_number,r,g,b):
     moeff.mote_single_led_rgb(ch_selection,led_number,r,g,b)
     get_state('all')
     return jsonify(status)
-
 
 ## Returns the current API version to the requester
 @app.route(baseurl, methods=['GET'])
