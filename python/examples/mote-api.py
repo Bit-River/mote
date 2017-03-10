@@ -266,6 +266,7 @@ def mote_single_led_spot_rgb(ch_selection,led_number,r,g,b):
     get_state('all')
     return jsonify(status)
 
+
 ## Returns the current API version to the requester
 @app.route(baseurl, methods=['GET'])
 def get_version():
